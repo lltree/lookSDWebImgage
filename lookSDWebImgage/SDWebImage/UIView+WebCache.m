@@ -64,7 +64,9 @@ static char TAG_ACTIVITY_SHOW;
     //为什么是nil？因为sd_setImageWithURL
     NSString *validOperationKey = operationKey ?: NSStringFromClass([self class]);
     //validOperationKey 有值时，取消这个key对应的ImageLoadOperation
+    //cell可能复用，所以先取消当前imageView的的Operation任务
     [self sd_cancelImageLoadOperationWithKey:validOperationKey];
+    //保存当前imageView的url
     objc_setAssociatedObject(self, &imageURLKey, url, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     
     if (!(options & SDWebImageDelayPlaceholder)) {
@@ -87,6 +89,7 @@ static char TAG_ACTIVITY_SHOW;
         
         SDWebImageManager *manager;
         if ([context valueForKey:SDWebImageExternalCustomManagerKey]) {
+            //自定义SDWebImageManager
             manager = (SDWebImageManager *)[context valueForKey:SDWebImageExternalCustomManagerKey];
         } else {
             //使用默认的
@@ -101,7 +104,8 @@ static char TAG_ACTIVITY_SHOW;
                 progressBlock(receivedSize, expectedSize, targetURL);
             }
         };
-        //初始化operation，并且开始加载图片，图片加载完后，再执行回调。
+        //初始化一个SDWebImageCombinedOperation，并且开始加载图片，图片加载完后，再执行回调。
+        //SDWebImageCombinedOperation内部包含了缓存Operation 和 下载Operation
         id <SDWebImageOperation> operation = [manager loadImageWithURL:url options:options progress:combinedProgressBlock completed:^(UIImage *image, NSData *data, NSError *error, SDImageCacheType cacheType, BOOL finished, NSURL *imageURL) {
             __strong __typeof (wself) sself = wself;
             if (!sself) { return; }
@@ -162,6 +166,8 @@ static char TAG_ACTIVITY_SHOW;
                 callCompletedBlockClojure();
             });
         }];
+        //validOperationKey 会发生copy操作，所以同一个imageView会发生多个
+        //当前任务对象唯一的下载任务
         [self sd_setImageLoadOperation:operation forKey:validOperationKey];
     } else {
         dispatch_main_async_safe(^{

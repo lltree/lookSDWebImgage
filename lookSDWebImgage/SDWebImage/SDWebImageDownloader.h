@@ -113,11 +113,13 @@ typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterB
  * Decompressing images that are downloaded and cached can improve performance but can consume lot of memory.
  * Defaults to YES. Set this to NO if you are experiencing a crash due to excessive memory consumption.
  */
+//压已经下载和缓存的图片可以提高性能，但是会消耗很多的内容。默认为YES。设置为NO，如果你遇到由于大量的消耗内存导致崩溃。
 @property (assign, nonatomic) BOOL shouldDecompressImages;
 
 /**
  *  The maximum number of concurrent downloads
  */
+//最大的并发下载数。默认6个
 @property (assign, nonatomic) NSInteger maxConcurrentDownloads;
 
 /**
@@ -128,6 +130,7 @@ typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterB
 /**
  *  The timeout value (in seconds) for the download operation. Default: 15.0.
  */
+//默认超时15秒
 @property (assign, nonatomic) NSTimeInterval downloadTimeout;
 
 /**
@@ -142,6 +145,7 @@ typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterB
 /**
  * Changes download operations execution order. Default value is `SDWebImageDownloaderFIFOExecutionOrder`.
  */
+//修改下载操作的执行顺序。默认值为SDWebImageDownloaderFIFOExecutionOrder。
 @property (assign, nonatomic) SDWebImageDownloaderExecutionOrder executionOrder;
 
 /**
@@ -154,6 +158,7 @@ typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterB
 /**
  *  Set the default URL credential to be set for request operations.
  */
+//为请求操作设置默认的URL证书。
 @property (strong, nonatomic, nullable) NSURLCredential *urlCredential;
 
 /**
@@ -172,6 +177,8 @@ typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterB
  * This block will be invoked for each downloading image request, returned
  * NSDictionary will be used as headers in corresponding HTTP request.
  */
+//设置过滤器用来挑选下载图片的HTTP请求的头。
+//这个块在每个图片下载请求时被调用，返回在相应的HTTP请求中用于HTTP头的NSDictionary。
 @property (nonatomic, copy, nullable) SDWebImageDownloaderHeadersFilterBlock headersFilter;
 
 /**
@@ -228,6 +235,10 @@ typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterB
  *
  * @return A token (SDWebImageDownloadToken) that can be passed to -cancel: to cancel this operation
  */
+/*
+ 根据提供的URL创建一个SDWebImageDownloader异步下载实例。
+ 代理在图片下载完成或发生一个错误后被执行。
+ */
 - (nullable SDWebImageDownloadToken *)downloadImageWithURL:(nullable NSURL *)url
                                                    options:(SDWebImageDownloaderOptions)options
                                                   progress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
@@ -248,6 +259,7 @@ typedef SDHTTPHeadersDictionary * _Nullable (^SDWebImageDownloaderHeadersFilterB
 /**
  * Cancels all download operations in the queue
  */
+//取消队列中所有下载操作。
 - (void)cancelAllDownloads;
 
 /**

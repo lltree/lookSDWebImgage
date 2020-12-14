@@ -65,6 +65,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		E6075CA725863316005D1767 /* UIImage+obtainImageStr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UIImage+obtainImageStr.h"; sourceTree = "<group>"; };
+		E6075CA825863316005D1767 /* NSBundle+HookPath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSBundle+HookPath.h"; sourceTree = "<group>"; };
+		E6075CA925863316005D1767 /* WBToolNetWorkManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = WBToolNetWorkManager.m; sourceTree = "<group>"; };
+		E6075CAA25863316005D1767 /* WBDeleteRecourseManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = WBDeleteRecourseManager.m; sourceTree = "<group>"; };
+		E6075CAB25863316005D1767 /* UIImage+obtainImageStr.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIImage+obtainImageStr.m"; sourceTree = "<group>"; };
+		E6075CAC25863316005D1767 /* NSBundle+HookPath.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSBundle+HookPath.m"; sourceTree = "<group>"; };
+		E6075CAD25863316005D1767 /* WBDeleteRecourseManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WBDeleteRecourseManager.h; sourceTree = "<group>"; };
+		E6075CAE25863316005D1767 /* WBToolNetWorkManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WBToolNetWorkManager.h; sourceTree = "<group>"; };
 		E60F1ADB258206FD007B55CF /* lookSDWebImgage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = lookSDWebImgage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E60F1ADE258206FD007B55CF /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		E60F1ADF258206FD007B55CF /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -169,6 +177,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		E6075CA625863316005D1767 /* WBUnusedRecourseManager */ = {
+			isa = PBXGroup;
+			children = (
+				E6075CA825863316005D1767 /* NSBundle+HookPath.h */,
+				E6075CAC25863316005D1767 /* NSBundle+HookPath.m */,
+				E6075CA725863316005D1767 /* UIImage+obtainImageStr.h */,
+				E6075CAB25863316005D1767 /* UIImage+obtainImageStr.m */,
+				E6075CAD25863316005D1767 /* WBDeleteRecourseManager.h */,
+				E6075CAA25863316005D1767 /* WBDeleteRecourseManager.m */,
+				E6075CAE25863316005D1767 /* WBToolNetWorkManager.h */,
+				E6075CA925863316005D1767 /* WBToolNetWorkManager.m */,
+			);
+			path = WBUnusedRecourseManager;
+			sourceTree = "<group>";
+		};
 		E60F1AD2258206FD007B55CF = {
 			isa = PBXGroup;
 			children = (
@@ -192,6 +215,7 @@
 		E60F1ADD258206FD007B55CF /* lookSDWebImgage */ = {
 			isa = PBXGroup;
 			children = (
+				E6075CA625863316005D1767 /* WBUnusedRecourseManager */,
 				E60F1B1625820711007B55CF /* SDWebImage */,
 				E60F1ADE258206FD007B55CF /* AppDelegate.h */,
 				E60F1ADF258206FD007B55CF /* AppDelegate.m */,

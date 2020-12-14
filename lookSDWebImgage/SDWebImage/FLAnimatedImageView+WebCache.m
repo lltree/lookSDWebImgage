@@ -47,21 +47,25 @@
                    options:(SDWebImageOptions)options
                   progress:(nullable SDWebImageDownloaderProgressBlock)progressBlock
                  completed:(nullable SDExternalCompletionBlock)completedBlock {
-    __weak typeof(self)weakSelf = self;
+    __weak typeof(self) weakSelf = self;
     [self sd_internalSetImageWithURL:url
                     placeholderImage:placeholder
                              options:options
                         operationKey:nil
                        setImageBlock:^(UIImage *image, NSData *imageData) {
-                           SDImageFormat imageFormat = [NSData sd_imageFormatForImageData:imageData];
-                           if (imageFormat == SDImageFormatGIF) {
-                               weakSelf.animatedImage = [FLAnimatedImage animatedImageWithGIFData:imageData];
-                               weakSelf.image = nil;
-                           } else {
-                               weakSelf.image = image;
-                               weakSelf.animatedImage = nil;
-                           }
-                       }
+
+        //获取图片类型
+        SDImageFormat imageFormat = [NSData sd_imageFormatForImageData:imageData];
+
+        if (imageFormat == SDImageFormatGIF) {
+            weakSelf.animatedImage = [FLAnimatedImage animatedImageWithGIFData:imageData];
+            weakSelf.image = nil;
+        }
+        else {
+            weakSelf.image = image;
+            weakSelf.animatedImage = nil;
+        }
+    }
                             progress:progressBlock
                            completed:completedBlock];
 }

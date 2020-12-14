@@ -10,12 +10,10 @@
 #import "SDWebImageDownloader.h"
 #import "SDWebImageOperation.h"
 
-FOUNDATION_EXPORT NSString * _Nonnull const SDWebImageDownloadStartNotification;
-FOUNDATION_EXPORT NSString * _Nonnull const SDWebImageDownloadReceiveResponseNotification;
-FOUNDATION_EXPORT NSString * _Nonnull const SDWebImageDownloadStopNotification;
-FOUNDATION_EXPORT NSString * _Nonnull const SDWebImageDownloadFinishNotification;
-
-
+FOUNDATION_EXPORT NSString *_Nonnull const SDWebImageDownloadStartNotification;
+FOUNDATION_EXPORT NSString *_Nonnull const SDWebImageDownloadReceiveResponseNotification;
+FOUNDATION_EXPORT NSString *_Nonnull const SDWebImageDownloadStopNotification;
+FOUNDATION_EXPORT NSString *_Nonnull const SDWebImageDownloadFinishNotification;
 
 /**
  Describes a downloader operation. If one wants to use a custom downloader op, it needs to inherit from `NSOperation` and conform to this protocol
@@ -40,7 +38,6 @@ FOUNDATION_EXPORT NSString * _Nonnull const SDWebImageDownloadFinishNotification
 
 @end
 
-
 @interface SDWebImageDownloaderOperation : NSOperation <SDWebImageDownloaderOperationInterface, SDWebImageOperation, NSURLSessionTaskDelegate, NSURLSessionDataDelegate>
 
 /**
@@ -52,7 +49,6 @@ FOUNDATION_EXPORT NSString * _Nonnull const SDWebImageDownloadFinishNotification
  * The operation's task
  */
 @property (strong, nonatomic, readonly, nullable) NSURLSessionTask *dataTask;
-
 
 @property (assign, nonatomic) BOOL shouldDecompressImages;
 

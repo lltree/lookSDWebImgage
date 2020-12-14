@@ -59,6 +59,7 @@ typedef NS_OPTIONS(NSUInteger, SDWebImageOptions) {
     /*
      虽然图片已经被缓存了，但是HTTP响应的缓存控制比较重要，如果需要则从远程地址刷新图片。硬盘缓存将用SDWebImage代替NSURLCache，会导致轻微的性能下降。这个项目帮助处理相同的请求URL而图片已经改变的情况，比如Facebook图形api的概要图片。如果一个缓存的图片被刷新，完成块会被缓存图片调用一次，再被最终的图片调用一次。
      */
+    //即使缓存中存在图片，也要走网络请求再次向缓存中存图片，相当于更新缓存中图片
     SDWebImageRefreshCached = 1 << 4,
 
     /**
@@ -151,6 +152,7 @@ typedef NS_OPTIONS(NSUInteger, SDWebImageOptions) {
     /**
      * By default, when the cache missed, the image is download from the network. This flag can prevent network to load from cache only.
      */
+    //图片只能从缓存中加载，不再走网络了
     SDWebImageFromCacheOnly = 1 << 15,
     /**
      * By default, when you use `SDWebImageTransition` to do some view transition after the image load finished, this transition is only applied for image download from the network. This mask can force to apply view transition for memory and disk cache as well.
@@ -181,6 +183,7 @@ typedef NSData * _Nullable(^SDWebImageCacheSerializerBlock)(UIImage * _Nonnull i
  *
  * @return Return NO to prevent the downloading of the image on cache misses. If not implemented, YES is implied.
  */
+//缓存中找不到图片的时候，是否允许从网络下
 - (BOOL)imageManager:(nonnull SDWebImageManager *)imageManager shouldDownloadImageForURL:(nullable NSURL *)imageURL;
 
 /**
@@ -233,8 +236,8 @@ SDWebImageManager *manager = [SDWebImageManager sharedManager];
 
 @property (weak, nonatomic, nullable) id <SDWebImageManagerDelegate> delegate;
 
-@property (strong, nonatomic, readonly, nullable) SDImageCache *imageCache;
-@property (strong, nonatomic, readonly, nullable) SDWebImageDownloader *imageDownloader;
+@property (strong, nonatomic, readonly, nullable) SDImageCache *imageCache;//缓存任务
+@property (strong, nonatomic, readonly, nullable) SDWebImageDownloader *imageDownloader;//网络下载任务
 
 /**
  * The cache filter is a block used each time SDWebImageManager need to convert an URL into a cache key. This can

@@ -37,6 +37,7 @@ typedef NS_ENUM(NSUInteger, SDImageCacheConfigExpireType) {
  * Defaults to YES.
  */
 //取消iCloud备份
+//默认禁止同步到Cloud
 @property (assign, nonatomic) BOOL shouldDisableiCloud;
 
 /**
@@ -45,6 +46,7 @@ typedef NS_ENUM(NSUInteger, SDImageCacheConfigExpireType) {
  * Defaults to YES.
  */
 //是否禁用内存缓存
+//如果禁用，图片不能缓存到内存中，且从内存中读取无效，只能保存在沙盒，
 @property (assign, nonatomic) BOOL shouldCacheImagesInMemory;
 
 /**

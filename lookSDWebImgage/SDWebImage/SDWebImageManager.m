@@ -13,11 +13,12 @@
 #define LOCK(lock) dispatch_semaphore_wait(lock, DISPATCH_TIME_FOREVER);
 #define UNLOCK(lock) dispatch_semaphore_signal(lock);
 
+//聚合Operation
 @interface SDWebImageCombinedOperation : NSObject <SDWebImageOperation>
 
 @property (assign, nonatomic, getter = isCancelled) BOOL cancelled;
-@property (strong, nonatomic, nullable) SDWebImageDownloadToken *downloadToken;
-@property (strong, nonatomic, nullable) NSOperation *cacheOperation;
+@property (strong, nonatomic, nullable) SDWebImageDownloadToken *downloadToken;//下载downloadOperation
+@property (strong, nonatomic, nullable) NSOperation *cacheOperation;//查询缓存Operation
 @property (weak, nonatomic, nullable) SDWebImageManager *manager;
 
 @end
@@ -45,6 +46,8 @@
 }
 
 - (nonnull instancetype)init {
+    //创建imageCache
+    //创建imageDownloader
     SDImageCache *cache = [SDImageCache sharedImageCache];
     SDWebImageDownloader *downloader = [SDWebImageDownloader sharedDownloader];
     return [self initWithCache:cache downloader:downloader];
@@ -52,8 +55,8 @@
 
 - (nonnull instancetype)initWithCache:(nonnull SDImageCache *)cache downloader:(nonnull SDWebImageDownloader *)downloader {
     if ((self = [super init])) {
-        _imageCache = cache;
-        _imageDownloader = downloader;
+        _imageCache = cache;//缓存任务
+        _imageDownloader = downloader;//Down任务
         _failedURLs = [NSMutableSet new];
         _failedURLsLock = dispatch_semaphore_create(1);//创建一个信号量
         _runningOperations = [NSMutableSet new];
@@ -164,7 +167,11 @@
     if (options & SDWebImageScaleDownLargeImages)
         cacheOptions |= SDImageCacheScaleDownLargeImages;
     
+    //每次加载图片的手创建一个联合体CombinedOperation，
+        //联合体关联cacheOperation缓存任务，如果缓存任务失败，则关联downloadToken
+            //downloadToken关联本次url及下载SDWebImageDownloaderOperation
     __weak SDWebImageCombinedOperation *weakOperation = operation;
+    //创建从cache缓存中查找的Operation
     operation.cacheOperation = [self.imageCache queryCacheOperationForKey:key options:cacheOptions done:^(UIImage *cachedImage, NSData *cachedData, SDImageCacheType cacheType) {
         __strong __typeof(weakOperation) strongOperation = weakOperation;
         if (!strongOperation || strongOperation.isCancelled) {
@@ -173,6 +180,7 @@
         }
         
         // Check whether we should download image from network
+        //检查是否允许从网络下载图片
         BOOL shouldDownload = (!(options & SDWebImageFromCacheOnly))
             && (!cachedImage || options & SDWebImageRefreshCached)
             && (![self.delegate respondsToSelector:@selector(imageManager:shouldDownloadImageForURL:)] || [self.delegate imageManager:self shouldDownloadImageForURL:url]);
@@ -180,6 +188,7 @@
             if (cachedImage && options & SDWebImageRefreshCached) {
                 // If image was found in the cache but SDWebImageRefreshCached is provided, notify about the cached image
                 // AND try to re-download it in order to let a chance to NSURLCache to refresh it from server.
+                //如果缓存中图片存在，但是需要使用网络刷新本地图片
                 [self callCompletionBlockForOperation:strongOperation completion:completedBlock image:cachedImage data:cachedData error:nil cacheType:cacheType finished:YES url:url];
             }
 
@@ -359,11 +368,11 @@
 - (void)cancel {
     @synchronized(self) {
         self.cancelled = YES;
-        if (self.cacheOperation) {
+        if (self.cacheOperation) { //查询缓存Operation取消
             [self.cacheOperation cancel];
             self.cacheOperation = nil;
         }
-        if (self.downloadToken) {
+        if (self.downloadToken) {//网络下载Operation 取消
             [self.manager.imageDownloader cancel:self.downloadToken];
         }
         [self.manager safelyRemoveOperationFromRunning:self];

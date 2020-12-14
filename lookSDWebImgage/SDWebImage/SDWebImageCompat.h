@@ -87,6 +87,7 @@
 #define NS_OPTIONS(_type, _name) enum _name : _type _name; enum _name : _type
 #endif
 
+//SDWebImage库中SDWebImageCompat是最基础的配置文件，为了兼容苹果各个平台。
 FOUNDATION_EXPORT UIImage *SDScaledImageForKey(NSString *key, UIImage *image);
 
 typedef void(^SDWebImageNoParamsBlock)(void);
