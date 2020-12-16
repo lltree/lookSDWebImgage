@@ -10,8 +10,8 @@
 #import "objc/runtime.h"
 #import "UIView+WebCacheOperation.h"
 
-NSString * const SDWebImageInternalSetImageGroupKey = @"internalSetImageGroup";
-NSString * const SDWebImageExternalCustomManagerKey = @"externalCustomManager";
+NSString *const SDWebImageInternalSetImageGroupKey = @"internalSetImageGroup";
+NSString *const SDWebImageExternalCustomManagerKey = @"externalCustomManager";
 
 const int64_t SDWebImageProgressUnitCountUnknown = 1LL;
 
@@ -31,10 +31,12 @@ static char TAG_ACTIVITY_SHOW;
 
 - (NSProgress *)sd_imageProgress {
     NSProgress *progress = objc_getAssociatedObject(self, @selector(sd_imageProgress));
+
     if (!progress) {
         progress = [[NSProgress alloc] initWithParent:nil userInfo:nil];
         self.sd_imageProgress = progress;
     }
+
     return progress;
 }
 
@@ -62,44 +64,49 @@ static char TAG_ACTIVITY_SHOW;
                            context:(nullable NSDictionary<NSString *, id> *)context {
     //获取operationKey，一般情况默认operationKey 为nil
     //为什么是nil？因为sd_setImageWithURL
-    NSString *validOperationKey = operationKey ?: NSStringFromClass([self class]);
+    NSString *validOperationKey = operationKey ? : NSStringFromClass([self class]);
     //validOperationKey 有值时，取消这个key对应的ImageLoadOperation
     //cell可能复用，所以先取消当前imageView的的Operation任务
     [self sd_cancelImageLoadOperationWithKey:validOperationKey];
     //保存当前imageView的url
     objc_setAssociatedObject(self, &imageURLKey, url, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    
+
     if (!(options & SDWebImageDelayPlaceholder)) {
         dispatch_main_async_safe(^{
             [self sd_setImage:placeholder imageData:nil basedOnClassOrViaCustomSetImageBlock:setImageBlock];
         });
     }
-    
+
     if (url) {
 #if SD_UIKIT
+
         // check if activityView is enabled or not
         if ([self sd_showActivityIndicatorView]) {
             [self sd_addActivityIndicator];
         }
+
 #endif
-        
+
         // reset the progress
         self.sd_imageProgress.totalUnitCount = 0;
         self.sd_imageProgress.completedUnitCount = 0;
-        
+
         SDWebImageManager *manager;
+
         if ([context valueForKey:SDWebImageExternalCustomManagerKey]) {
             //自定义SDWebImageManager
             manager = (SDWebImageManager *)[context valueForKey:SDWebImageExternalCustomManagerKey];
-        } else {
+        }
+        else {
             //使用默认的
             manager = [SDWebImageManager sharedManager];
         }
-        
-        __weak __typeof(self)wself = self;
-        SDWebImageDownloaderProgressBlock combinedProgressBlock = ^(NSInteger receivedSize, NSInteger expectedSize, NSURL * _Nullable targetURL) {
+
+        __weak __typeof(self) wself = self;
+        SDWebImageDownloaderProgressBlock combinedProgressBlock = ^(NSInteger receivedSize, NSInteger expectedSize, NSURL *_Nullable targetURL) {
             wself.sd_imageProgress.totalUnitCount = expectedSize;
             wself.sd_imageProgress.completedUnitCount = receivedSize;
+
             if (progressBlock) {
                 progressBlock(receivedSize, expectedSize, targetURL);
             }
@@ -108,28 +115,35 @@ static char TAG_ACTIVITY_SHOW;
         //SDWebImageCombinedOperation内部包含了缓存Operation 和 下载Operation
         id <SDWebImageOperation> operation = [manager loadImageWithURL:url options:options progress:combinedProgressBlock completed:^(UIImage *image, NSData *data, NSError *error, SDImageCacheType cacheType, BOOL finished, NSURL *imageURL) {
             __strong __typeof (wself) sself = wself;
+
             if (!sself) { return; }
+
 #if SD_UIKIT
+            //移除指示器
             [sself sd_removeActivityIndicator];
 #endif
+
             // if the progress not been updated, mark it to complete state
             if (finished && !error && sself.sd_imageProgress.totalUnitCount == 0 && sself.sd_imageProgress.completedUnitCount == 0) {
                 sself.sd_imageProgress.totalUnitCount = SDWebImageProgressUnitCountUnknown;
                 sself.sd_imageProgress.completedUnitCount = SDWebImageProgressUnitCountUnknown;
             }
+
             BOOL shouldCallCompletedBlock = finished || (options & SDWebImageAvoidAutoSetImage);
             BOOL shouldNotSetImage = ((image && (options & SDWebImageAvoidAutoSetImage)) ||
                                       (!image && !(options & SDWebImageDelayPlaceholder)));
             SDWebImageNoParamsBlock callCompletedBlockClojure = ^{
                 if (!sself) { return; }
+
                 if (!shouldNotSetImage) {
                     [sself sd_setNeedsLayout];
                 }
+
                 if (completedBlock && shouldCallCompletedBlock) {
                     completedBlock(image, error, cacheType, url);
                 }
             };
-            
+
             // case 1a: we got an image, but the SDWebImageAvoidAutoSetImage flag is set
             // OR
             // case 1b: we got no image and the SDWebImageDelayPlaceholder is not set
@@ -137,45 +151,52 @@ static char TAG_ACTIVITY_SHOW;
                 dispatch_main_async_safe(callCompletedBlockClojure);
                 return;
             }
-            
+
             UIImage *targetImage = nil;
             NSData *targetData = nil;
+
             if (image) {
                 // case 2a: we got an image and the SDWebImageAvoidAutoSetImage is not set
                 targetImage = image;
                 targetData = data;
-            } else if (options & SDWebImageDelayPlaceholder) {
+            }
+            else if (options & SDWebImageDelayPlaceholder) {
                 // case 2b: we got no image and the SDWebImageDelayPlaceholder flag is set
                 targetImage = placeholder;
                 targetData = nil;
             }
-            
+
 #if SD_UIKIT || SD_MAC
             // check whether we should use the image transition
             SDWebImageTransition *transition = nil;
+
             if (finished && (options & SDWebImageForceTransition || cacheType == SDImageCacheTypeNone)) {
                 transition = sself.sd_imageTransition;
             }
+
 #endif
+            //主线程中赋值
             dispatch_main_async_safe(^{
 #if SD_UIKIT || SD_MAC
-                [sself sd_setImage:targetImage imageData:targetData basedOnClassOrViaCustomSetImageBlock:setImageBlock transition:transition cacheType:cacheType imageURL:imageURL];
+                                         [sself sd_setImage:targetImage imageData:targetData basedOnClassOrViaCustomSetImageBlock:setImageBlock transition:transition cacheType:cacheType imageURL:imageURL];
 #else
-                [sself sd_setImage:targetImage imageData:targetData basedOnClassOrViaCustomSetImageBlock:setImageBlock];
+                                         [sself sd_setImage:targetImage imageData:targetData basedOnClassOrViaCustomSetImageBlock:setImageBlock];
 #endif
-                callCompletedBlockClojure();
-            });
+                                         callCompletedBlockClojure();
+                                     });
         }];
         //validOperationKey 会发生copy操作，所以同一个imageView会发生多个
         //当前任务对象唯一的下载任务
         [self sd_setImageLoadOperation:operation forKey:validOperationKey];
-    } else {
+    }
+    else {
         dispatch_main_async_safe(^{
 #if SD_UIKIT
             [self sd_removeActivityIndicator];
 #endif
+
             if (completedBlock) {
-                NSError *error = [NSError errorWithDomain:SDWebImageErrorDomain code:-1 userInfo:@{NSLocalizedDescriptionKey : @"Trying to load a nil url"}];
+                NSError *error = [NSError errorWithDomain:SDWebImageErrorDomain code:-1 userInfo:@{ NSLocalizedDescriptionKey: @"Trying to load a nil url" }];
                 completedBlock(nil, error, SDImageCacheTypeNone, url);
             }
         });
@@ -190,13 +211,16 @@ static char TAG_ACTIVITY_SHOW;
 #if SD_UIKIT || SD_MAC
     [self sd_setImage:image imageData:imageData basedOnClassOrViaCustomSetImageBlock:setImageBlock transition:nil cacheType:0 imageURL:nil];
 #else
+
     // watchOS does not support view transition. Simplify the logic
     if (setImageBlock) {
         setImageBlock(image, imageData);
-    } else if ([self isKindOfClass:[UIImageView class]]) {
+    }
+    else if ([self isKindOfClass:[UIImageView class]]) {
         UIImageView *imageView = (UIImageView *)self;
         [imageView setImage:image];
     }
+
 #endif
 }
 
@@ -204,23 +228,26 @@ static char TAG_ACTIVITY_SHOW;
 - (void)sd_setImage:(UIImage *)image imageData:(NSData *)imageData basedOnClassOrViaCustomSetImageBlock:(SDSetImageBlock)setImageBlock transition:(SDWebImageTransition *)transition cacheType:(SDImageCacheType)cacheType imageURL:(NSURL *)imageURL {
     UIView *view = self;
     SDSetImageBlock finalSetImageBlock;
+
     if (setImageBlock) {
         finalSetImageBlock = setImageBlock;
-    } else if ([view isKindOfClass:[UIImageView class]]) {
+    }
+    else if ([view isKindOfClass:[UIImageView class]]) {
         UIImageView *imageView = (UIImageView *)view;
         finalSetImageBlock = ^(UIImage *setImage, NSData *setImageData) {
             imageView.image = setImage;
         };
     }
+
 #if SD_UIKIT
     else if ([view isKindOfClass:[UIButton class]]) {
         UIButton *button = (UIButton *)view;
-        finalSetImageBlock = ^(UIImage *setImage, NSData *setImageData){
+        finalSetImageBlock = ^(UIImage *setImage, NSData *setImageData) {
             [button setImage:setImage forState:UIControlStateNormal];
         };
     }
 #endif
-    
+
     if (transition) {
 #if SD_UIKIT
         [UIView transitionWithView:view duration:0 options:0 animations:^{
@@ -233,26 +260,30 @@ static char TAG_ACTIVITY_SHOW;
                 if (finalSetImageBlock && !transition.avoidAutoSetImage) {
                     finalSetImageBlock(image, imageData);
                 }
+
                 if (transition.animations) {
                     transition.animations(view, image);
                 }
             } completion:transition.completion];
         }];
 #elif SD_MAC
-        [NSAnimationContext runAnimationGroup:^(NSAnimationContext * _Nonnull prepareContext) {
+        [NSAnimationContext runAnimationGroup:^(NSAnimationContext *_Nonnull prepareContext) {
             // 0 duration to let AppKit render placeholder and prepares block
             prepareContext.duration = 0;
+
             if (transition.prepares) {
                 transition.prepares(view, image, imageData, cacheType, imageURL);
             }
         } completionHandler:^{
-            [NSAnimationContext runAnimationGroup:^(NSAnimationContext * _Nonnull context) {
+            [NSAnimationContext runAnimationGroup:^(NSAnimationContext *_Nonnull context) {
                 context.duration = transition.duration;
                 context.timingFunction = transition.timingFunction;
                 context.allowsImplicitAnimation = (transition.animationOptions & SDWebImageAnimationOptionAllowsImplicitAnimation);
+
                 if (finalSetImageBlock && !transition.avoidAutoSetImage) {
                     finalSetImageBlock(image, imageData);
                 }
+
                 if (transition.animations) {
                     transition.animations(view, image);
                 }
@@ -263,12 +294,14 @@ static char TAG_ACTIVITY_SHOW;
             }];
         }];
 #endif
-    } else {
+    }
+    else {
         if (finalSetImageBlock) {
             finalSetImageBlock(image, imageData);
         }
     }
 }
+
 #endif
 
 - (void)sd_setNeedsLayout {
@@ -294,7 +327,7 @@ static char TAG_ACTIVITY_SHOW;
 
 #if SD_UIKIT
 
-#pragma mark - Activity indicator
+#pragma mark - Activity indicator 菊花指示器
 - (UIActivityIndicatorView *)activityIndicator {
     return (UIActivityIndicatorView *)objc_getAssociatedObject(self, &TAG_ACTIVITY_INDICATOR);
 }
@@ -303,6 +336,7 @@ static char TAG_ACTIVITY_SHOW;
     objc_setAssociatedObject(self, &TAG_ACTIVITY_INDICATOR, activityIndicator, OBJC_ASSOCIATION_RETAIN);
 }
 
+//是否显示加载指示器
 - (void)sd_setShowActivityIndicatorView:(BOOL)show {
     objc_setAssociatedObject(self, &TAG_ACTIVITY_SHOW, @(show), OBJC_ASSOCIATION_RETAIN);
 }
@@ -311,11 +345,11 @@ static char TAG_ACTIVITY_SHOW;
     return [objc_getAssociatedObject(self, &TAG_ACTIVITY_SHOW) boolValue];
 }
 
-- (void)sd_setIndicatorStyle:(UIActivityIndicatorViewStyle)style{
+- (void)sd_setIndicatorStyle:(UIActivityIndicatorViewStyle)style {
     objc_setAssociatedObject(self, &TAG_ACTIVITY_STYLE, [NSNumber numberWithInt:style], OBJC_ASSOCIATION_RETAIN);
 }
 
-- (int)sd_getIndicatorStyle{
+- (int)sd_getIndicatorStyle {
     return [objc_getAssociatedObject(self, &TAG_ACTIVITY_STYLE) intValue];
 }
 
@@ -324,9 +358,9 @@ static char TAG_ACTIVITY_SHOW;
         if (!self.activityIndicator) {
             self.activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:[self sd_getIndicatorStyle]];
             self.activityIndicator.translatesAutoresizingMaskIntoConstraints = NO;
-        
+
             [self addSubview:self.activityIndicator];
-            
+
             [self addConstraint:[NSLayoutConstraint constraintWithItem:self.activityIndicator
                                                              attribute:NSLayoutAttributeCenterX
                                                              relatedBy:NSLayoutRelationEqual
@@ -342,6 +376,7 @@ static char TAG_ACTIVITY_SHOW;
                                                             multiplier:1.0
                                                               constant:0.0]];
         }
+
         [self.activityIndicator startAnimating];
     });
 }

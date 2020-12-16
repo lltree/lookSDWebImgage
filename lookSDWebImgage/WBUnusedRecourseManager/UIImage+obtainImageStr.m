@@ -40,10 +40,14 @@
 +(void)swizzleClassMethodClass:(Class)class orig:(SEL)origSel swiz:(SEL)swizSel{
     Method origMethod = class_getClassMethod(class,origSel);
     Method swizMethod = class_getClassMethod(class, swizSel);
+    //先替换原始SEL 的IMP
     BOOL success = class_addMethod(class, origSel, method_getImplementation(swizMethod), method_getTypeEncoding(swizMethod));
     if(success){
+        //添加成功，说明原有方法不存在
+        //
         class_replaceMethod(class, swizSel, method_getImplementation(origMethod), method_getTypeEncoding(origMethod));
     }else{
+        //添加失败说明 存在该方法，则执行替换方法
         method_exchangeImplementations(origMethod, swizMethod);
     }
 }

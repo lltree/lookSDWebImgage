@@ -35,8 +35,8 @@
 @interface SDWebImageDownloader () <NSURLSessionTaskDelegate, NSURLSessionDataDelegate>
 
 @property (strong, nonatomic, nonnull) NSOperationQueue *downloadQueue;
-@property (weak, nonatomic, nullable) NSOperation *lastAddedOperation;
-@property (assign, nonatomic, nullable) Class operationClass;
+@property (weak, nonatomic, nullable) NSOperation *lastAddedOperation;//上次添加进来的Operation
+@property (assign, nonatomic, nullable) Class operationClass;//要创建的Operation类名
 @property (strong, nonatomic, nonnull) NSMutableDictionary<NSURL *, SDWebImageDownloaderOperation *> *URLOperations;//DownloaderOperation
 @property (strong, nonatomic, nullable) SDHTTPHeadersMutableDictionary *HTTPHeaders;
 @property (strong, nonatomic, nonnull) dispatch_semaphore_t operationsLock; // a lock to keep the access to `URLOperations` thread-safe
@@ -82,12 +82,13 @@
 }
 
 - (nonnull instancetype)init {
+    //创建默认会话模式（default）
     return [self initWithSessionConfiguration:[NSURLSessionConfiguration defaultSessionConfiguration]];
 }
 
 - (nonnull instancetype)initWithSessionConfiguration:(nullable NSURLSessionConfiguration *)sessionConfiguration {
     if ((self = [super init])) {
-        _operationClass = [SDWebImageDownloaderOperation class];
+        _operationClass = [SDWebImageDownloaderOperation class]; //定义ImageDownloaderOperation的类名
         _shouldDecompressImages = YES;
         _executionOrder = SDWebImageDownloaderFIFOExecutionOrder;
 
@@ -138,9 +139,21 @@
     }
 
     if (cancelPendingOperations) {
+
+        /*
+         取消所有未完成的任务，然后使会话失效。（有任务，取消所有任务）
+        一旦失效，对委托和回调对象的引用就会被破坏。无效后，会话对象不能重用。
+
+        在由sharedSession方法返回的会话上调用此方法不起作用。
+         */
+
         [self.session invalidateAndCancel];
     }
     else {
+        /*
+         使会话无效，允许任何未完成的任务完成(有任务，继续任务)
+         此方法立即返回，无需等待任务完成。 一旦会话失效，无法在会话中创建新任务，但现有任务会一直持续到完成。 在最后一个任务完成并且会话进行与这些任务相关的最后一个委托调用之后，会话将在其委托上调用URLSession：didBecomeInvalidWithError：方法，然后中断对委托和回调对象的引用。 无效后，会话对象不能重用。
+         */
         [self.session finishTasksAndInvalidate];
     }
 }
@@ -345,6 +358,7 @@
     UNLOCK(self.operationsLock);
 }
 
+//挂起
 - (void)setSuspended:(BOOL)suspended {
     self.downloadQueue.suspended = suspended;
 }
@@ -417,9 +431,14 @@
 }
 
 #pragma mark NSURLSessionTaskDelegate
-
+/*
+ 通知URL会话该会话已失效。
+ 如果通过调用finishTasksAndInvalidate方法使会话失效，则会话将一直等待，
+ 直到会话中的最终任务完成或失败，然后再调用此委托方法。如果您调用invalidateAndCancel方法，会话将立即调用此委托方法。
+ */
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
 
+    //取出dataOperation，让dataOperation 处理
     // Identify the operation that runs this task and pass it the delegate method
     SDWebImageDownloaderOperation *dataOperation = [self operationWithTask:task];
 
@@ -442,6 +461,13 @@
         }
     }
 }
+/*
+ 响应来自远程服务器的会话级别认证请求，从代理请求凭据。
+这种方法在两种情况下被调用：
+1、远程服务器请求客户端证书或Windows NT LAN Manager（NTLM）身份验证时，允许您的应用程序提供适当的凭据
+2、当会话首先建立与使用SSL或TLS的远程服务器的连接时，允许您的应用程序验证服务器的证书链
+如果您未实现此方法，则会话会调用其委托的URLSession：task：didReceiveChallenge：completionHandler：方法。
+注：此方法仅处理NSURLAuthenticationMethodNTLM，NSURLAuthenticationMethodNegotiate，NSURLAuthenticationMethodClientCertificate和NSURLAuthenticationMethodServerTrust身份验证类型。对于所有其他认证方案，会话仅调用URLSession：task：didReceiveChallenge：completionHandler：方法。 */
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler {
 

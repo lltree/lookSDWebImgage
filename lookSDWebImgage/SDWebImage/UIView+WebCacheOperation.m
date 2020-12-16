@@ -26,7 +26,7 @@ typedef NSMapTable<NSString *, id<SDWebImageOperation>> SDOperationsDictionary;
             return operations;
         }
         //Key ：strong
-        //value :Weak
+        //value :Weak 即Operation为弱引用，Operation运行完成就会删除，然后key释放
         operations = [[NSMapTable alloc] initWithKeyOptions:NSPointerFunctionsStrongMemory valueOptions:NSPointerFunctionsWeakMemory capacity:0];
         objc_setAssociatedObject(self, &loadOperationKey, operations, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         return operations;

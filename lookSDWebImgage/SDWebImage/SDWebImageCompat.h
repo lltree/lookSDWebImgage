@@ -88,6 +88,7 @@
 #endif
 
 //SDWebImage库中SDWebImageCompat是最基础的配置文件，为了兼容苹果各个平台。
+// 保证不同平台/版本/屏幕等兼容性的宏定义和内联 图片缩放
 FOUNDATION_EXPORT UIImage *SDScaledImageForKey(NSString *key, UIImage *image);
 
 typedef void(^SDWebImageNoParamsBlock)(void);

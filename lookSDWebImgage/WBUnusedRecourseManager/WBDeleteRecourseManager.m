@@ -27,10 +27,9 @@ static SDWebImageDownloader *imageDownloader = nil;
 //DocumentDirectory目录下建立DeleteImageRecource文件夹
 //DocumentDirectory
 //  -DeleteImageRecource
-//      - 版本号1
+//      - app_Version1
 //          -com.hackemist.SDWebImageCache.UnUsedImage
-//      - 版本号2
-
+//      - app_Version2
 
 @implementation WBDeleteRecourseManager
 + (void)load {
@@ -43,6 +42,7 @@ static SDWebImageDownloader *imageDownloader = nil;
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
 
     NSString *pathurl = [NSString stringWithFormat:@"%@/%@", path, DeleteImageRecource];
+    //该目录下所有文件夹
     NSArray *fileArrays = [fileManager contentsOfDirectoryAtPath:pathurl error:nil];
     NSDictionary *infoDictionary = [[NSBundle mainBundle] infoDictionary];
     NSString *app_Version = [infoDictionary objectForKey:@"CFBundleShortVersionString"];
@@ -69,12 +69,23 @@ static SDWebImageDownloader *imageDownloader = nil;
     imageNameToMd5Path = [NSMutableDictionary dictionary];
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
     NSDictionary *infoDictionary = [[NSBundle mainBundle] infoDictionary];
-    //添加版本控制
+    //路径
+    //DocumentDirectory
+    //  -DeleteImageRecource
+    //      - app_Version
+    //          - com.hackemist.SDWebImageCache.UnUsedImage
     NSString *app_Version = [infoDictionary objectForKey:@"CFBundleShortVersionString"];
     filePath = [NSString stringWithFormat:@"%@/%@/%@", path, DeleteImageRecource, app_Version];
 
     //创建
+    /* imageCache 内部并没有保存图片 而是保存这些内容
+     {
+        @"内置图片名_1"：@"图片url_1",
+        @"内置图片名_2"：@"图片url_2"
+     }
+     */
     imageCache = [[SDImageCache alloc] initWithNamespace:@"UnUsedImage" diskCacheDirectory:filePath];
+
     imageDownloader = [SDWebImageDownloader sharedDownloader];
 
     NSDictionary *imageNameToMd5s = [self imageCacheDictionaryWithKey:@"imageNameToMd5Path"];
@@ -83,27 +94,39 @@ static SDWebImageDownloader *imageDownloader = nil;
         imageNameToMd5Path = [imageNameToMd5s mutableCopy];
     }
 
-    NSString *requestURL = [NSString stringWithFormat:@"%@/resource/imgPatch", WB_BASE_HOST_OSS_STR_BRANDNEW];
+    NSString *requestURL = [NSString stringWithFormat:@"%@/resource/imgPatch", @"https://app.58.com/api/base"];
     NSDictionary *requestParmas = @{
             @"dataVersion": [WBDeleteRecourseManager getDataVersion]
     };
     [WBToolNetWorkManager getRequestManagerUrl:requestURL parms:requestParmas Success:^(id result) {
         NSDictionary *resultDic  = (NSDictionary *)result;
 
+        /*
+         @{
+            @"dataVersion":@"",
+            @"commonImages":@{
+
+            }
+        }
+         */
+        /*
+         第一次：全返回。
+         第二次：
+         */
         if ([[resultDic objectForKey:@"code"] integerValue] == 200) { //版本不一致 需要重新保存
             //保存数据版本号
-            [WBDeleteRecourseManager saveDataVersion:[resultDic objectForKey:@"dataVersion"]];
+            [WBDeleteRecourseManager saveDataVersion:[resultDic objectForKey:@"dataVersion"]];//服务端每次新添一张会发生dataVersion 变化
             commonImagesDic = resultDic[@"commonImages"];
 
             if ([commonImagesDic isKindOfClass:NSDictionary.class] && commonImagesDic.allKeys.count > 0) {
                 NSData *commonImagesDicToData =    [NSJSONSerialization dataWithJSONObject:commonImagesDic options:0 error:nil];
-                
+
                 [imageCache storeImageDataToDisk:commonImagesDicToData forKey:@"commonImagesDicToData"];
-                
+
                 [WBDeleteRecourseManager downLoadDeleteRecourse:commonImagesDic];
             }
         }
-        else if ([[resultDic objectForKey:@"code"] integerValue] == 201) {//版本一致 需要从缓存中获取
+        else if ([[resultDic objectForKey:@"code"] integerValue] == 201) {//版本一致  需要从缓存中获取
             NSDictionary *commonImagesDic = [self imageCacheDictionaryWithKey:@"commonImagesDicToData"];
 
             if (commonImagesDic) {
@@ -148,6 +171,7 @@ static SDWebImageDownloader *imageDownloader = nil;
             continue;
         }
 
+        //下载的时候把图片名字转为MD5值
         NSString *md5String = [[NSString stringWithFormat:@"%@+%@", [result.allKeys objectAtIndex:i], urlString] string02XFromMD5];
         [imageNameToMd5Path setObject:md5String forKey:[result.allKeys objectAtIndex:i]];
 
@@ -164,6 +188,7 @@ static SDWebImageDownloader *imageDownloader = nil;
         }
     }
 
+    //imageNameToMd5Path 也存到磁盘中
     NSData *commonImagesDicToData = [NSJSONSerialization dataWithJSONObject:imageNameToMd5Path options:0 error:nil];
     [imageCache storeImageDataToDisk:commonImagesDicToData forKey:@"imageNameToMd5Path"];
 }

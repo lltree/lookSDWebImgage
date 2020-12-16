@@ -14,6 +14,7 @@
 #define LOCK(lock)   dispatch_semaphore_wait(lock, DISPATCH_TIME_FOREVER);
 #define UNLOCK(lock) dispatch_semaphore_signal(lock);
 
+//计算图片大小
 FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
 #if SD_MAC
     return image.size.height * image.size.width;
@@ -64,7 +65,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
         // Use a strong-weak maptable storing the secondary cache. Follow the doc that NSCache does not copy keys
         // This is useful when the memory warning, the cache was purged. However, the image instance can be retained by other instance such as imageViews and alive.
         // At this case, we can sync weak cache back and do not need to load from disk cache
-        self.weakCache = [[NSMapTable alloc] initWithKeyOptions:NSPointerFunctionsStrongMemory valueOptions:NSPointerFunctionsWeakMemory capacity:0];
+        self.weakCache = [[NSMapTable alloc] initWithKeyOptions:NSPointerFunctionsStrongMemory valueOptions:NSPointerFunctionsWeakMemory capacity:0];//采用强Key 弱Value存储
         self.weakCacheLock = dispatch_semaphore_create(1);
         self.config = config;
         [[NSNotificationCenter defaultCenter] addObserver:self
@@ -205,7 +206,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
         NSString *fullNamespace = [@"com.hackemist.SDWebImageCache." stringByAppendingString:ns];
 
         // Create IO serial queue
-        //串行队列
+        //创建IO串行队列
         _ioQueue = dispatch_queue_create("com.hackemist.SDWebImageCache", DISPATCH_QUEUE_SERIAL);
 
         _config = [[SDImageCacheConfig alloc] init];
@@ -230,6 +231,12 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
         });
 
 #if SD_UIKIT
+        /*
+         UIApplicationWillTerminateNotification 是应用即将终止的时候调用,但是我发现并没有调用 , Google 了一下
+         得出最终结论 :
+         1.应用在前台,双击 Home 键 ,终止应用 , UIApplicationWillTerminateNotification 调用
+         2.应用在前台,单击 Home 键,进入桌面 , 再终止应用 UIApplicationWillTerminateNotification 不会被调用.
+         */
         // Subscribe to app events
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(deleteOldFiles)
@@ -313,6 +320,9 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
     [self storeImage:image imageData:nil forKey:key toDisk:toDisk completion:completionBlock];
 }
 
+/*
+    toDisk : 保存到memCache的同时，是否也保存到沙盒中
+ */
 - (void)storeImage:(nullable UIImage *)image
          imageData:(nullable NSData *)imageData
             forKey:(nullable NSString *)key
@@ -615,6 +625,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
                 diskImage = [self diskImageForKey:key data:diskData options:options];
 
             //shouldCacheImagesInMemory允许使用内存，则放到MemoryCache中
+            //重新放到memCache中，方便下次使用
                 if (diskImage && self.config.shouldCacheImagesInMemory) {
                     NSUInteger cost = SDCacheCostForImage(diskImage);
                     [self.memCache setObject:diskImage forKey:key cost:cost];
@@ -791,6 +802,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
             const NSUInteger desiredCacheSize = self.config.maxCacheSize / 2;
 
             // Sort the remaining cache files by their last modification time (oldest first).
+            //排序，老的在前，新修改的在前
             NSArray<NSURL *> *sortedFiles = [cacheFiles keysSortedByValueWithOptions:NSSortConcurrent
                                                                      usingComparator:^NSComparisonResult (id obj1, id obj2) {
                 return [obj1[NSURLContentModificationDateKey] compare:obj2[NSURLContentModificationDateKey]];
@@ -803,6 +815,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
                     NSNumber *totalAllocatedSize = resourceValues[NSURLTotalFileAllocatedSizeKey];
                     currentCacheSize -= totalAllocatedSize.unsignedIntegerValue;
 
+                    //一直删除，删到允许保存的内存下降到desiredCacheSize为止
                     if (currentCacheSize < desiredCacheSize) {
                         break;
                     }

@@ -45,6 +45,7 @@ inline UIImage *SDScaledImageForKey(NSString * _Nullable key, UIImage * _Nullabl
         if ([[UIScreen mainScreen] respondsToSelector:@selector(scale)]) {
 #endif
             CGFloat scale = 1;
+            // “@2x.png”的长度为7，所以此处添加了这个判断，很巧妙
             if (key.length >= 8) {
                 NSRange range = [key rangeOfString:@"@2x."];
                 if (range.location != NSNotFound) {

@@ -106,6 +106,7 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
 }
 
 - (nullable NSArray<id> *)callbacksForKey:(NSString *)key {
+    
     LOCK(self.callbacksLock);
     NSMutableArray<id> *callbacks = [[self.callbackBlocks valueForKey:key] mutableCopy];
     UNLOCK(self.callbacksLock);
@@ -115,6 +116,7 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
 }
 
 - (BOOL)cancel:(nullable id)token {
+    
     BOOL shouldCancel = NO;
     LOCK(self.callbacksLock);
     [self.callbackBlocks removeObjectIdenticalTo:token];
@@ -196,6 +198,7 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
             }
         }
 
+        //用容器的session
         self.dataTask = [session dataTaskWithRequest:self.request];//开始下载
         self.executing = YES;
     }
@@ -300,6 +303,7 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
 }
 
 - (void)setFinished:(BOOL)finished {
+    //可能有人会监听finished属性
     [self willChangeValueForKey:@"isFinished"];
     _finished = finished;
     [self didChangeValueForKey:@"isFinished"];
@@ -315,12 +319,13 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
     return YES;
 }
 
-#pragma mark NSURLSessionDataDelegate
+#pragma mark - NSURLSessionDataDelegate
 
 - (void)    URLSession:(NSURLSession *)session
               dataTask:(NSURLSessionDataTask *)dataTask
     didReceiveResponse:(NSURLResponse *)response
      completionHandler:(void (^)(NSURLSessionResponseDisposition disposition))completionHandler {
+
     NSURLSessionResponseDisposition disposition = NSURLSessionResponseAllow;
     NSInteger expected = (NSInteger)response.expectedContentLength;
     expected = expected > 0 ? expected : 0;
@@ -355,6 +360,7 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
     }
 }
 
+//接收到数据了
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveData:(NSData *)data {
     if (!self.imageData) {
         self.imageData = [[NSMutableData alloc] initWithCapacity:self.expectedSize];
@@ -422,8 +428,8 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
     }
 }
 
-#pragma mark NSURLSessionTaskDelegate
-
+#pragma mark - NSURLSessionTaskDelegate
+// 告诉代理该任务完成传输数据。
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
     @synchronized(self) {
         self.dataTask = nil;
@@ -513,6 +519,10 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
     }
 }
 
+/* 响应来自远程服务器的认证请求，从代理请求凭证。
+ 该方法处理任务级别的身份验证挑战。 NSURLSessionDelegate协议还提供了会话级别的身份验证委托方法。所调用的方法取决于身份验证挑战的类型：
+对于会话级挑战-NSURLAuthenticationMethodNTLM，NSURLAuthenticationMethodNegotiate，NSURLAuthenticationMethodClientCertificate或NSURLAuthenticationMethodServerTrust - NSURLSession对象调用会话委托的URLSession：didReceiveChallenge：completionHandler：方法。如果您的应用程序未提供会话委托方法，则NSURLSession对象会调用任务委托人的URLSession：task：didReceiveChallenge：completionHandler：方法来处理该挑战。
+对于非会话级挑战（所有其他挑战），NSURLSession对象调用会话委托的URLSession：task：didReceiveChallenge：completionHandler：方法来处理挑战。如果您的应用程序提供会话委托，并且您需要处理身份验证，那么您必须在任务级别处理身份验证，或者提供明确调用每会话处理程序的任务级别处理程序。会话委托的URLSession：didReceiveChallenge：completionHandler：方法不针对非会话级别的挑战进行调用。*/
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler {
 
     NSURLSessionAuthChallengeDisposition disposition = NSURLSessionAuthChallengePerformDefaultHandling;
@@ -547,7 +557,7 @@ typedef NSMutableDictionary<NSString *, id> SDCallbacksDictionary;
     }
 }
 
-#pragma mark Helper methods
+#pragma mark - Helper methods
 - (nullable UIImage *)scaledImageForKey:(nullable NSString *)key image:(nullable UIImage *)image {
     return SDScaledImageForKey(key, image);
 }

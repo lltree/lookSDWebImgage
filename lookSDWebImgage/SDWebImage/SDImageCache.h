@@ -94,6 +94,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * @param ns The namespace to use for this cache store
  */
 //指定命名空间，图片存到对应的沙盒目录中
+//这个是存到SDWebImage目录下
 - (nonnull instancetype)initWithNamespace:(nonnull NSString *)ns;
 
 /**
@@ -103,6 +104,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * @param directory Directory to cache disk images in
  */
 //指定命名空间和沙盒目录
+//这个能指定目录
 - (nonnull instancetype)initWithNamespace:(nonnull NSString *)ns
                        diskCacheDirectory:(nonnull NSString *)directory NS_DESIGNATED_INITIALIZER;
 

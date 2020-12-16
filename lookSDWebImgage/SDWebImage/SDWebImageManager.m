@@ -10,7 +10,7 @@
 #import "NSImage+WebCache.h"
 #import <objc/message.h>
 
-#define LOCK(lock) dispatch_semaphore_wait(lock, DISPATCH_TIME_FOREVER);
+#define LOCK(lock)   dispatch_semaphore_wait(lock, DISPATCH_TIME_FOREVER);
 #define UNLOCK(lock) dispatch_semaphore_signal(lock);
 
 //聚合Operation
@@ -62,6 +62,7 @@
         _runningOperations = [NSMutableSet new];
         _runningOperationsLock = dispatch_semaphore_create(1);
     }
+
     return self;
 }
 
@@ -72,7 +73,8 @@
 
     if (self.cacheKeyFilter) {
         return self.cacheKeyFilter(url);
-    } else {
+    }
+    else {
         return url.absoluteString;
     }
 }
@@ -84,9 +86,9 @@
 - (void)cachedImageExistsForURL:(nullable NSURL *)url
                      completion:(nullable SDWebImageCheckCacheCompletionBlock)completionBlock {
     NSString *key = [self cacheKeyForURL:url];
-    
+
     BOOL isInMemoryCache = ([self.imageCache imageFromMemoryCacheForKey:key] != nil);
-    
+
     if (isInMemoryCache) {
         // making sure we call the completion block on the main queue
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -96,7 +98,7 @@
         });
         return;
     }
-    
+
     [self.imageCache diskImageExistsWithKey:key completion:^(BOOL isInDiskCache) {
         // the completion block of checkDiskCacheForImageWithKey:completion: is always called on the main queue, no need to further dispatch
         if (completionBlock) {
@@ -108,7 +110,7 @@
 - (void)diskImageExistsForURL:(nullable NSURL *)url
                    completion:(nullable SDWebImageCheckCacheCompletionBlock)completionBlock {
     NSString *key = [self cacheKeyForURL:url];
-    
+
     [self.imageCache diskImageExistsWithKey:key completion:^(BOOL isInDiskCache) {
         // the completion block of checkDiskCacheForImageWithKey:completion: is always called on the main queue, no need to further dispatch
         if (completionBlock) {
@@ -139,6 +141,7 @@
     operation.manager = self;
 
     BOOL isFailedUrl = NO;
+
     if (url) {
         LOCK(self.failedURLsLock); //减一个信号 往下执行
         //判断self.failedURLs 失败的url集合中是否包含这个url
@@ -158,74 +161,118 @@
     [self.runningOperations addObject:operation];
     UNLOCK(self.runningOperationsLock);
     NSString *key = [self cacheKeyForURL:url];
-    
+
     SDImageCacheOptions cacheOptions = 0;
-    if (options & SDWebImageQueryDataWhenInMemory)
+
+    if (options & SDWebImageQueryDataWhenInMemory) {
         cacheOptions |= SDImageCacheQueryDataWhenInMemory;
-    if (options & SDWebImageQueryDiskSync)
+    }
+
+    if (options & SDWebImageQueryDiskSync) {
         cacheOptions |= SDImageCacheQueryDiskSync;
-    if (options & SDWebImageScaleDownLargeImages)
+    }
+
+    if (options & SDWebImageScaleDownLargeImages) {
         cacheOptions |= SDImageCacheScaleDownLargeImages;
-    
+    }
+
     //每次加载图片的手创建一个联合体CombinedOperation，
-        //联合体关联cacheOperation缓存任务，如果缓存任务失败，则关联downloadToken
-            //downloadToken关联本次url及下载SDWebImageDownloaderOperation
+    //联合体关联cacheOperation缓存任务，如果缓存任务失败，则关联downloadToken
+    //downloadToken关联本次url及下载SDWebImageDownloaderOperation
     __weak SDWebImageCombinedOperation *weakOperation = operation;
     //创建从cache缓存中查找的Operation
     operation.cacheOperation = [self.imageCache queryCacheOperationForKey:key options:cacheOptions done:^(UIImage *cachedImage, NSData *cachedData, SDImageCacheType cacheType) {
         __strong __typeof(weakOperation) strongOperation = weakOperation;
+
         if (!strongOperation || strongOperation.isCancelled) {
+            //如果任务不存在或者取消了 则从池子中删除
             [self safelyRemoveOperationFromRunning:strongOperation];
             return;
         }
-        
+
         // Check whether we should download image from network
-        //检查是否允许从网络下载图片
+        //问代理：是否允许从网络下载图片
+        // 图片只能从缓存中加载，不再走网络了
+        // cachedImage 没找到 SDWebImageRefreshCached需要下载刷新缓存的图片
+        // 问代理是否允许下载
         BOOL shouldDownload = (!(options & SDWebImageFromCacheOnly))
             && (!cachedImage || options & SDWebImageRefreshCached)
             && (![self.delegate respondsToSelector:@selector(imageManager:shouldDownloadImageForURL:)] || [self.delegate imageManager:self shouldDownloadImageForURL:url]);
+
         if (shouldDownload) {
+            
             if (cachedImage && options & SDWebImageRefreshCached) {
-                // If image was found in the cache but SDWebImageRefreshCached is provided, notify about the cached image
-                // AND try to re-download it in order to let a chance to NSURLCache to refresh it from server.
-                //如果缓存中图片存在，但是需要使用网络刷新本地图片
+            // If image was found in the cache but SDWebImageRefreshCached is provided, notify about the cached image
+            // AND try to re-download it in order to let a chance to NSURLCache to refresh it from server.
+            //如果缓存中图片存在，但是需要使用网络刷新本地图片
                 [self callCompletionBlockForOperation:strongOperation completion:completedBlock image:cachedImage data:cachedData error:nil cacheType:cacheType finished:YES url:url];
             }
 
             // download if no image or requested to refresh anyway, and download allowed by delegate
             SDWebImageDownloaderOptions downloaderOptions = 0;
-            if (options & SDWebImageLowPriority) downloaderOptions |= SDWebImageDownloaderLowPriority;
-            if (options & SDWebImageProgressiveDownload) downloaderOptions |= SDWebImageDownloaderProgressiveDownload;
-            if (options & SDWebImageRefreshCached) downloaderOptions |= SDWebImageDownloaderUseNSURLCache;
-            if (options & SDWebImageContinueInBackground) downloaderOptions |= SDWebImageDownloaderContinueInBackground;
-            if (options & SDWebImageHandleCookies) downloaderOptions |= SDWebImageDownloaderHandleCookies;
-            if (options & SDWebImageAllowInvalidSSLCertificates) downloaderOptions |= SDWebImageDownloaderAllowInvalidSSLCertificates;
-            if (options & SDWebImageHighPriority) downloaderOptions |= SDWebImageDownloaderHighPriority;
-            if (options & SDWebImageScaleDownLargeImages) downloaderOptions |= SDWebImageDownloaderScaleDownLargeImages;
-            
+
+            if (options & SDWebImageLowPriority) {
+                downloaderOptions |= SDWebImageDownloaderLowPriority;
+            }
+
+            if (options & SDWebImageProgressiveDownload) {
+                downloaderOptions |= SDWebImageDownloaderProgressiveDownload;
+            }
+
+            if (options & SDWebImageRefreshCached) {
+                downloaderOptions |= SDWebImageDownloaderUseNSURLCache;
+            }
+
+            if (options & SDWebImageContinueInBackground) {
+                downloaderOptions |= SDWebImageDownloaderContinueInBackground;
+            }
+
+            if (options & SDWebImageHandleCookies) {
+                downloaderOptions |= SDWebImageDownloaderHandleCookies;
+            }
+
+            if (options & SDWebImageAllowInvalidSSLCertificates) {
+                downloaderOptions |= SDWebImageDownloaderAllowInvalidSSLCertificates;
+            }
+
+            if (options & SDWebImageHighPriority) {
+                downloaderOptions |= SDWebImageDownloaderHighPriority;
+            }
+
+            if (options & SDWebImageScaleDownLargeImages) {
+                downloaderOptions |= SDWebImageDownloaderScaleDownLargeImages;
+            }
+
             if (cachedImage && options & SDWebImageRefreshCached) {
-                // force progressive off if image already cached but forced refreshing
+            // force progressive off if image already cached but forced refreshing
                 downloaderOptions &= ~SDWebImageDownloaderProgressiveDownload;
-                // ignore image read from NSURLCache if image if cached but force refreshing
+            // ignore image read from NSURLCache if image if cached but force refreshing
                 downloaderOptions |= SDWebImageDownloaderIgnoreCachedResponse;
             }
-            
+
             // `SDWebImageCombinedOperation` -> `SDWebImageDownloadToken` -> `downloadOperationCancelToken`, which is a `SDCallbacksDictionary` and retain the completed block below, so we need weak-strong again to avoid retain cycle
             __weak typeof(strongOperation) weakSubOperation = strongOperation;
             strongOperation.downloadToken = [self.imageDownloader downloadImageWithURL:url options:downloaderOptions progress:progressBlock completed:^(UIImage *downloadedImage, NSData *downloadedData, NSError *error, BOOL finished) {
                 __strong typeof(weakSubOperation) strongSubOperation = weakSubOperation;
+
                 if (!strongSubOperation || strongSubOperation.isCancelled) {
-                    // Do nothing if the operation was cancelled
-                    // See #699 for more details
-                    // if we would call the completedBlock, there could be a race condition between this block and another completedBlock for the same object, so if this one is called second, we will overwrite the new data
-                } else if (error) {
+            // Do nothing if the operation was cancelled
+            // See #699 for more details
+            // if we would call the completedBlock, there could be a race condition between this block and another completedBlock for the same object, so if this one is called second, we will overwrite the new data
+                }
+                else if (error) {   //下载失败
+            //调用完成回调
                     [self callCompletionBlockForOperation:strongSubOperation completion:completedBlock error:error url:url];
                     BOOL shouldBlockFailedURL;
-                    // Check whether we should block failed url
+
+            // Check whether we should block failed url
+            //问是否加入黑名单
                     if ([self.delegate respondsToSelector:@selector(imageManager:shouldBlockFailedURL:withError:)]) {
                         shouldBlockFailedURL = [self.delegate imageManager:self shouldBlockFailedURL:url withError:error];
-                    } else {
-                        shouldBlockFailedURL = (   error.code != NSURLErrorNotConnectedToInternet
+                    }
+                    else {
+            //默认这些情况不加入黑名单
+                        shouldBlockFailedURL = (error.code != NSURLErrorNotConnectedToInternet
                                                 && error.code != NSURLErrorCancelled
                                                 && error.code != NSURLErrorTimedOut
                                                 && error.code != NSURLErrorInternationalRoamingOff
@@ -234,58 +281,66 @@
                                                 && error.code != NSURLErrorCannotConnectToHost
                                                 && error.code != NSURLErrorNetworkConnectionLost);
                     }
-                    
+
                     if (shouldBlockFailedURL) {
                         LOCK(self.failedURLsLock);
-                        [self.failedURLs addObject:url];
+                        [self.failedURLs addObject:url];//下载失败了
                         UNLOCK(self.failedURLsLock);
                     }
                 }
-                else {
+                else { //下载成功
                     if ((options & SDWebImageRetryFailed)) {
                         LOCK(self.failedURLsLock);
                         [self.failedURLs removeObject:url];
                         UNLOCK(self.failedURLsLock);
                     }
-                    
+
                     BOOL cacheOnDisk = !(options & SDWebImageCacheMemoryOnly);
-                    
+
                     // We've done the scale process in SDWebImageDownloader with the shared manager, this is used for custom manager and avoid extra scale.
                     if (self != [SDWebImageManager sharedManager] && self.cacheKeyFilter && downloadedImage) {
                         downloadedImage = [self scaledImageForKey:key image:downloadedImage];
                     }
 
                     if (options & SDWebImageRefreshCached && cachedImage && !downloadedImage) {
-                        // Image refresh hit the NSURLCache cache, do not call the completion block
-                    } else if (downloadedImage && (!downloadedImage.images || (options & SDWebImageTransformAnimatedImage)) && [self.delegate respondsToSelector:@selector(imageManager:transformDownloadedImage:withURL:)]) {
+                    // Image refresh hit the NSURLCache cache, do not call the completion block
+                    }
+                    else if (downloadedImage && (!downloadedImage.images || (options & SDWebImageTransformAnimatedImage)) && [self.delegate respondsToSelector:@selector(imageManager:transformDownloadedImage:withURL:)]) {
                         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                            UIImage *transformedImage = [self.delegate imageManager:self transformDownloadedImage:downloadedImage withURL:url];
+                                           UIImage *transformedImage = [self.delegate imageManager:self transformDownloadedImage:downloadedImage withURL:url];
 
-                            if (transformedImage && finished) {
-                                BOOL imageWasTransformed = ![transformedImage isEqual:downloadedImage];
-                                NSData *cacheData;
-                                // pass nil if the image was transformed, so we can recalculate the data from the image
-                                if (self.cacheSerializer) {
-                                    cacheData = self.cacheSerializer(transformedImage, (imageWasTransformed ? nil : downloadedData), url);
-                                } else {
-                                    cacheData = (imageWasTransformed ? nil : downloadedData);
-                                }
-                                [self.imageCache storeImage:transformedImage imageData:cacheData forKey:key toDisk:cacheOnDisk completion:nil];
-                            }
-                            
-                            [self callCompletionBlockForOperation:strongSubOperation completion:completedBlock image:transformedImage data:downloadedData error:nil cacheType:SDImageCacheTypeNone finished:finished url:url];
-                        });
-                    } else {
+                                           if (transformedImage && finished) {
+                                               BOOL imageWasTransformed = ![transformedImage isEqual:downloadedImage];
+                                               NSData *cacheData;
+
+                                               // pass nil if the image was transformed, so we can recalculate the data from the image
+                                               if (self.cacheSerializer) {
+                                                   cacheData = self.cacheSerializer(transformedImage, (imageWasTransformed ? nil : downloadedData), url);
+                                               }
+                                               else {
+                                                   cacheData = (imageWasTransformed ? nil : downloadedData);
+                                               }
+
+                                               [self.imageCache storeImage:transformedImage imageData:cacheData forKey:key toDisk:cacheOnDisk completion:nil];
+                                           }
+
+                                           [self callCompletionBlockForOperation:strongSubOperation completion:completedBlock image:transformedImage data:downloadedData error:nil cacheType:SDImageCacheTypeNone finished:finished url:url];
+                                       });
+                    }
+                    else {
                         if (downloadedImage && finished) {
                             if (self.cacheSerializer) {
                                 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-                                    NSData *cacheData = self.cacheSerializer(downloadedImage, downloadedData, url);
-                                    [self.imageCache storeImage:downloadedImage imageData:cacheData forKey:key toDisk:cacheOnDisk completion:nil];
-                                });
-                            } else {
+                                                   NSData *cacheData = self.cacheSerializer(downloadedImage, downloadedData, url);
+                                                   [self.imageCache storeImage:downloadedImage imageData:cacheData forKey:key toDisk:cacheOnDisk completion:nil];
+                                               });
+                            }
+                            else {
                                 [self.imageCache storeImage:downloadedImage imageData:downloadedData forKey:key toDisk:cacheOnDisk completion:nil];
                             }
                         }
+
+                        //完成回调
                         [self callCompletionBlockForOperation:strongSubOperation completion:completedBlock image:downloadedImage data:downloadedData error:nil cacheType:SDImageCacheTypeNone finished:finished url:url];
                     }
                 }
@@ -294,10 +349,12 @@
                     [self safelyRemoveOperationFromRunning:strongSubOperation];
                 }
             }];
-        } else if (cachedImage) {
+        }
+        else if (cachedImage) { //shouldDownload = NO
             [self callCompletionBlockForOperation:strongOperation completion:completedBlock image:cachedImage data:cachedData error:nil cacheType:cacheType finished:YES url:url];
             [self safelyRemoveOperationFromRunning:strongOperation];
-        } else {
+        }
+        else {
             // Image not in cache and download disallowed by delegate
             [self callCompletionBlockForOperation:strongOperation completion:completedBlock image:nil data:nil error:nil cacheType:SDImageCacheTypeNone finished:YES url:url];
             [self safelyRemoveOperationFromRunning:strongOperation];
@@ -329,23 +386,24 @@
     return isRunning;
 }
 
-- (void)safelyRemoveOperationFromRunning:(nullable SDWebImageCombinedOperation*)operation {
+- (void)safelyRemoveOperationFromRunning:(nullable SDWebImageCombinedOperation *)operation {
     if (!operation) {
         return;
     }
+
     LOCK(self.runningOperationsLock);
     [self.runningOperations removeObject:operation];
     UNLOCK(self.runningOperationsLock);
 }
 
-- (void)callCompletionBlockForOperation:(nullable SDWebImageCombinedOperation*)operation
+- (void)callCompletionBlockForOperation:(nullable SDWebImageCombinedOperation *)operation
                              completion:(nullable SDInternalCompletionBlock)completionBlock
                                   error:(nullable NSError *)error
                                     url:(nullable NSURL *)url {
     [self callCompletionBlockForOperation:operation completion:completionBlock image:nil data:nil error:error cacheType:SDImageCacheTypeNone finished:YES url:url];
 }
 
-- (void)callCompletionBlockForOperation:(nullable SDWebImageCombinedOperation*)operation
+- (void)callCompletionBlockForOperation:(nullable SDWebImageCombinedOperation *)operation
                              completion:(nullable SDInternalCompletionBlock)completionBlock
                                   image:(nullable UIImage *)image
                                    data:(nullable NSData *)data
@@ -353,7 +411,7 @@
                               cacheType:(SDImageCacheType)cacheType
                                finished:(BOOL)finished
                                     url:(nullable NSURL *)url {
-    dispatch_main_async_safe(^{
+    dispatch_main_async_safe(^{//主线程中回调 图片下载成功
         if (operation && !operation.isCancelled && completionBlock) {
             completionBlock(image, data, error, cacheType, finished, url);
         }
@@ -362,19 +420,21 @@
 
 @end
 
-
 @implementation SDWebImageCombinedOperation
 
 - (void)cancel {
     @synchronized(self) {
         self.cancelled = YES;
+
         if (self.cacheOperation) { //查询缓存Operation取消
             [self.cacheOperation cancel];
             self.cacheOperation = nil;
         }
+
         if (self.downloadToken) {//网络下载Operation 取消
             [self.manager.imageDownloader cancel:self.downloadToken];
         }
+
         [self.manager safelyRemoveOperationFromRunning:self];
     }
 }
